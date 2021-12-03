@@ -201,6 +201,7 @@ class BaseTestCHATReader:
                     "%gra": "1|2|QUANT 2|0|INCROOT 3|2|PUNCT",
                     "%int": "distinctive , loud",
                 },
+                gem=None
             ),
             Utterance(
                 participant="MOT",
@@ -239,6 +240,7 @@ class BaseTestCHATReader:
                     "%mor": "pro:per|you 0v|v qn|more n|cookie-PL ?",
                     "%gra": "1|2|SUBJ 2|0|ROOT 3|4|QUANT 4|2|OBJ 5|2|PUNCT",
                 },
+                gem=None
             ),
         ]
 

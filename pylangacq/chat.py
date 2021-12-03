@@ -222,6 +222,25 @@ class _File:
     utterances: List[Utterance]
 
 
+@dataclasses.dataclass
+class _TierLine:
+    """An interstitial type for tier and utterance processing
+
+    Attributes
+    ----------
+    gem: Optional[str]
+    tiermarker_to_line: Dict[str, str]
+    """
+
+    __slots__ = ("gem", "tiermarker_to_line")
+
+    gem: Optional[str]
+    tiermarker_to_line: Dict[str, str]
+
+    def __iter__(self):
+        return (self.gem, self.tiermarker_to_line)
+
+
 class Reader:
     """A reader that handles CHAT data."""
 
@@ -1304,12 +1323,13 @@ class Reader:
                 return tier_marker
         return None
 
-    def _get_utterances(self, all_tiers: Iterable[Dict[str, str]]) -> List[Utterance]:
+    def _get_utterances(self, all_tiers: Iterable[_TierLine]) -> List[Utterance]:
         result_list = []
 
-        for tiermarker_to_line in all_tiers:
+        for tier_line in all_tiers:
+            tiermarker_to_line = tier_line.tiermarker_to_line
             participant_code = self._get_participant_code(tiermarker_to_line.keys())
-
+            tier = None
             if participant_code is None:
                 continue
 
@@ -1396,7 +1416,7 @@ class Reader:
                 sent.append(self._preprocess_token(output_word))
 
             time_marks = self._get_time_marks(tiermarker_to_line[participant_code])
-            u = Utterance(participant_code, sent, time_marks, tiermarker_to_line)
+            u = Utterance(participant_code, sent, time_marks, tiermarker_to_line, tier_line.gem)
             result_list.append(self._preprocess_utterance(u))
 
         return result_list
@@ -1438,28 +1458,31 @@ class Reader:
         except (ValueError, TypeError):
             return None
 
-    def _get_all_tiers(self, lines: List[str]) -> Iterable[Dict[str, str]]:
-        index_to_tiers: Dict[int, Dict[str, str]] = {}
-        index_ = -1  # utterance index (1st utterance is index 0)
+    def _get_all_tiers(self, lines: List[str]) -> Iterable[_TierLine]:
+        tiers: List[_TierLine] = []
+        gem: Optional[str] = None
         utterance = None
 
         for line in lines:
-            if line.startswith("@"):
+            if line.startswith("@G:"):
+                key, *gem = line.split(maxsplit=1)
+                gem = gem[0] if len(gem) else None
+            elif line.startswith("@"):
                 continue
 
             line_split = line.split()
 
             if line.startswith("*"):
-                index_ += 1
                 participant_code = line_split[0].lstrip("*").rstrip(":")
                 utterance = " ".join(line_split[1:])
-                index_to_tiers[index_] = {participant_code: utterance}
+                tier_line = _TierLine(gem=gem, tiermarker_to_line={participant_code: utterance})
+                tiers.append(tier_line)
 
             elif utterance and line.startswith("%"):
                 tier_marker = line_split[0].rstrip(":")
-                index_to_tiers[index_][tier_marker] = " ".join(line_split[1:])
+                tiers[-1].tiermarker_to_line[tier_marker] = " ".join(line_split[1:])
 
-        return index_to_tiers.values()
+        return tiers
 
     def _get_header(self, lines: List[str]) -> Dict:
         headname_to_entry = {}
@@ -1470,7 +1493,7 @@ class Reader:
             if not header_re_search:
                 continue
 
-            if line.startswith("@Begin") or line.startswith("@End"):
+            if line.startswith("@Begin") or line.startswith("@End") or line.startswith("@G:"):
                 continue
 
             # find head, e.g., "Languages", "Participants", "ID" etc

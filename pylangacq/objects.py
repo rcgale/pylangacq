@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional
 
 
 @dataclasses.dataclass
@@ -68,11 +68,14 @@ class Utterance:
         in CHAT), common tiers such as %mor and %gra, as well as all other tiers
         associated with the utterance. This dictionary is useful to retrieve
         whatever information not readily handled by this package.
+    gem : str
+        ...
     """
 
-    __slots__ = ("participant", "tokens", "time_marks", "tiers")
+    __slots__ = ("participant", "tokens", "time_marks", "tiers", "gem")
 
     participant: str
     tokens: List[Token]
     time_marks: Union[Tuple[int, int], None]
     tiers: Dict[str, str]
+    gem : Optional[str]
